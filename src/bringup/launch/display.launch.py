@@ -14,7 +14,7 @@ def generate_launch_description():
         executable='robot_state_publisher',
         parameters=[{'robot_description': Command(['xacro ', LaunchConfiguration('model')])}, {'use_sim_time': LaunchConfiguration('use_sim_time')}]
     )
-    
+
     joint_state_publisher_node = launch_ros.actions.Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
@@ -50,6 +50,30 @@ def generate_launch_description():
             output='screen'
         )
 
+    map_to_baselink_node = launch_ros.actions.Node(
+        package='map_to_baselink',
+        executable='map_to_baselink',       
+    )
+
+    odom_to_baselink_node = launch_ros.actions.Node(
+        package='odom_to_baselink',
+        executable='odom_to_baselink'
+    )
+
+    laser_to_pointcloud_node = launch_ros.actions.Node(
+        package='laser_to_pointcloud',
+        executable='laser_to_pointcloud'
+    )
+
+    map_to_topic_node = launch_ros.actions.Node(
+        package='map_to_topic',
+        executable='map_to_topic'
+    )
+
+    local_costmap_node = launch_ros.actions.Node(
+        package='local_costmap',
+        executable='local_costmap'
+    )
     return launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(name='gui', default_value='True',
                                             description='Flag to enable joint_state_publisher_gui'),
@@ -64,5 +88,10 @@ def generate_launch_description():
         robot_state_publisher_node,
         spawn_entity,
         rviz_node,
-        tf2_publish_cmd
+        tf2_publish_cmd,
+        map_to_baselink_node,
+        odom_to_baselink_node,
+        laser_to_pointcloud_node,
+        map_to_topic_node,
+        local_costmap_node
     ])
