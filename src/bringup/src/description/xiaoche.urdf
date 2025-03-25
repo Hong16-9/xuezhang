@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<robot name="xiaoche" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- 定义全局属性 -->
+  <xacro:property name="base_radius" value="0.42"/>
+  <xacro:property name="base_length" value="0.2"/> <!-- 原base_height改为base_length -->
+  <xacro:property name="base_z" value="${base_length/2}"/> <!-- 坐标系修正 -->
+
+  <xacro:property name="wheel_radius" value="0.15"/>
+  <xacro:property name="wheel_width" value="0.04"/>
+  <xacro:property name="wheel_ygap" value="0.025"/>
+  <xacro:property name="wheel_zoff" value="${base_z}"/> <!-- 与底盘中心对齐 -->
+  <xacro:property name="wheel_xoff" value="0.12"/>
+
+  <xacro:property name="caster_xoff" value="0.14"/>
+
+  <!-- 定义惯性计算宏 -->
+  <xacro:macro name="box_inertia" params="m w h d">
+    <inertial>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}"/>
+      <mass value="${m}"/>
+      <inertia ixx="${(m/12) * (h*h + d*d)}" ixy="0.0" ixz="0.0" 
+               iyy="${(m/12) * (w*w + d*d)}" iyz="0.0" 
+               izz="${(m/12) * (w*w + h*h)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="cylinder_inertia" params="m r h">
+    <inertial>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${(m/12) * (3*r*r + h*h)}" ixy="0" ixz="0" 
+               iyy="${(m/12) * (3*r*r + h*h)}" iyz="0" 
+               izz="${(m/2) * (r*r)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${(2/5) * m * (r*r)}" ixy="0.0" ixz="0.0" 
+               iyy="${(2/5) * m * (r*r)}" iyz="0.0" 
+               izz="${(2/5) * m * (r*r)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- 添加Gazebo颜色宏 -->
+  <material name="Cyan">
+    <color rgba="0 1.0 1.0 1.0"/>
+  </material>
+
+  <!-- 在base_link前添加无惯性参数的虚拟根链接 -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${base_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- 机器人底盘 -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.15" rpy="0 0 0"/> 
+      <geometry>
+        <cylinder radius="${base_radius}" length="${base_length}"/> 
+      </geometry>
+      <material name="Cyan"/>
+    </visual>
+    <xacro:cylinder_inertia m="15.0" r="${base_radius}" h="${base_length}"/>
+  </link>
+
+  <!-- 轮子宏 -->
+  <xacro:macro name="wheel" params="prefix x_reflect y_reflect">
+    <!-- 1. 定义轮子链接 -->
+    <link name="${prefix}_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/> <!-- 圆柱体正确朝向 -->
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="Cyan"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertia m="0.5" r="${wheel_radius}" h="${wheel_width}"/>
+    </link>
+
+    <!-- 2. 定义轮子关节 -->
+    <joint name="${prefix}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_link"/>
+      <origin xyz="${x_reflect * wheel_xoff} ${y_reflect*(base_radius + wheel_width/2)} ${wheel_zoff}"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <!-- 3. Gazebo配置 -->
+    <gazebo reference="${prefix}_link">
+      <material>Cyan</material>
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- 调用轮子宏定义左右驱动轮 -->
+  <xacro:wheel prefix="drivewhl_l" x_reflect="-1" y_reflect="1"/>
+  <xacro:wheel prefix="drivewhl_r" x_reflect="-1" y_reflect="-1"/>
+
+  <!-- 在底盘底部添加支撑轮 -->
+  <link name="caster_link">
+    <visual>
+      <geometry>
+        <sphere radius="0.10"/>
+      </geometry>
+      <material name="Cyan"/>
+    </visual>
+    <xacro:sphere_inertia m="0.1" r="0.10"/>
+
+    <collision>  
+      <geometry>  
+        <sphere radius="0.10"/> <!-- 碰撞模型与可视化相同 -->  
+      </geometry>  
+    </collision>  
+
+    <xacro:sphere_inertia m="0.1" r="0.10"/> <!-- 确保质量和半径合适 -->  
+  </link>
+  
+  <joint name="caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_link"/>
+    <origin xyz="${base_radius - 0.10} 0 0.05"/> 
+  </joint>
+
+  <!-- 差速轮 -->
+  <gazebo>
+    <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+      <ros>
+        <namespace>/</namespace>
+      </ros>
+      <left_joint>drivewhl_l_joint</left_joint>
+      <right_joint>drivewhl_r_joint</right_joint>
+      <wheel_separation>${2*(base_radius + wheel_width)}</wheel_separation>
+      <wheel_diameter>${2*wheel_radius}</wheel_diameter>
+      <command_topic>cmd_vel</command_topic>
+      <odometry_topic>odom</odometry_topic>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <publish_odom>true</publish_odom>
+    </plugin>
+  </gazebo>
+
+  <!-- 雷达插件 -->
+  <link name="lidar_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.125"/>
+      <xacro:cylinder_inertia m="0.125" r="0.0508" h="0.055"/>
+    </inertial>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.0508" length="0.055"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.0508" length="0.055"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0 0 0.26" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="lidar_link">
+    <sensor name="lidar" type="ray">
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>5</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1.000000</resolution>
+            <min_angle>0.000000</min_angle>
+            <max_angle>6.280000</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.120000</min>
+          <max>3.5</max>
+          <resolution>0.015000</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="scan" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=top_laser</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>lidar_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- 平3帝插件 -->
+  <gazebo>
+    <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+
+      <update_rate>20.0</update_rate>
+      <body_name>base_footprint</body_name>
+      <frame_name>world</frame_name>
+
+      <gaussian_noise>0.0</gaussian_noise>
+      <xyz_offset>0 0 0</xyz_offset>
+      <rpy_offset>0 0 0</rpy_offset>
+    </plugin>
+  </gazebo>
+
+</robot>
