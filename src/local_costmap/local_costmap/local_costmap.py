@@ -10,7 +10,7 @@ from collections import deque
 import struct
 from rclpy.qos import QoSProfile
 from scipy.spatial import KDTree
-from transformations import quaternion_matrix  # 确保安装 tf_transformations
+from tf_transformations import quaternion_matrix
 
 class LocalCostmap(Node):
     def __init__(self):
@@ -213,7 +213,7 @@ class LocalCostmap(Node):
         trans = transform.transform.translation
         rot = transform.transform.rotation
         trans_vec = np.array([trans.x, trans.y, trans.z])
-        rot_matrix = quaternion_matrix([rot.x, rot.y, rot.z, rot.w])[:3, :3]
+        rot_matrix = quaternion_matrix([rot.w, rot.x, rot.y, rot.z])[:3, :3]
 
         # 应用变换
         transformed_points = (rot_matrix @ points.T).T + trans_vec
