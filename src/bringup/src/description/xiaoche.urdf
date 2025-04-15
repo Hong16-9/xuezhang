@@ -222,4 +222,9 @@
     </plugin>
   </gazebo>
 
+  <xacro:include filename="$(find ros2_livox_simulation)/urdf/mid360.xacro" />
+
+  <xacro:mid360 name="livox" parent="base_link" topic="mid360">
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </xacro:mid360>
 </robot>
