@@ -62,18 +62,18 @@
   </link>
 
   <!-- 轮子宏 -->
-  <xacro:macro name="wheel" params="prefix x_reflect y_reflect roll pitch axis_x axis_y">
+  <xacro:macro name="wheel" params="prefix x_reflect y_reflect">
     <!-- 1. 定义轮子链接 -->
     <link name="${prefix}_link">
       <visual>
-        <origin xyz="0 0 0" rpy="${roll} ${pitch} 0"/> <!-- 圆柱体正确朝向 -->
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/> <!-- 圆柱体正确朝向 -->
         <geometry>
           <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
         </geometry>
         <material name="Cyan"/>
       </visual>
       <collision>
-        <origin xyz="0 0 0" rpy="${roll} ${pitch} 0"/>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
         <geometry>
           <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
         </geometry>
@@ -85,8 +85,8 @@
     <joint name="${prefix}_joint" type="continuous">
       <parent link="base_link"/>
       <child link="${prefix}_link"/>
-      <origin xyz="${x_reflect*(base_radius + wheel_width/2)} ${y_reflect*(base_radius + wheel_width/2)} ${wheel_zoff}"/>
-      <axis xyz="${axis_x} ${axis_y} 0"/>
+      <origin xyz="${x_reflect * wheel_xoff} ${y_reflect*(base_radius + wheel_width/2)} ${wheel_zoff}"/>
+      <axis xyz="0 1 0"/>
     </joint>
 
     <!-- 3. Gazebo配置 -->
@@ -98,10 +98,33 @@
   </xacro:macro>
 
   <!-- 调用轮子宏定义左右驱动轮 -->
-  <xacro:wheel prefix="drivewhl_l" x_reflect="0" y_reflect="1" roll="pi/2" pitch="0" axis_x="0" axis_y="1"/>
-  <xacro:wheel prefix="drivewhl_r" x_reflect="0" y_reflect="-1" roll="pi/2" pitch="0" axis_x="0" axis_y="1"/>
-  <xacro:wheel prefix="drivewhl_in" x_reflect="1" y_reflect="0" roll="0" pitch="pi/2" axis_x="1" axis_y="0"/>
-  <xacro:wheel prefix="drivewhl_be" x_reflect="-1" y_reflect="0" roll="0" pitch="pi/2" axis_x="1" axis_y="0"/>
+  <xacro:wheel prefix="drivewhl_l" x_reflect="-1" y_reflect="1"/>
+  <xacro:wheel prefix="drivewhl_r" x_reflect="-1" y_reflect="-1"/>
+
+  <!-- 在底盘底部添加支撑轮 -->
+  <link name="caster_link">
+    <visual>
+      <geometry>
+        <sphere radius="0.10"/>
+      </geometry>
+      <material name="Cyan"/>
+    </visual>
+    <xacro:sphere_inertia m="0.1" r="0.10"/>
+
+    <collision>  
+      <geometry>  
+        <sphere radius="0.10"/> <!-- 碰撞模型与可视化相同 -->  
+      </geometry>  
+    </collision>  
+
+    <xacro:sphere_inertia m="0.1" r="0.10"/> <!-- 确保质量和半径合适 -->  
+  </link>
+  
+  <joint name="caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_link"/>
+    <origin xyz="${base_radius - 0.10} 0 0.05"/> 
+  </joint>
 
   <!-- 差速轮 -->
   <gazebo>
